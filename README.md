@@ -14,7 +14,7 @@ flowchart TD
     B --> C[Bond pricing<br/>PV of cash flows<br/><i>built</i>]
     C --> D[DV01 & duration<br/>shock-and-reprice<br/><i>built</i>]
     D --> E[Options Greeks<br/>Black-Scholes<br/><i>built</i>]
-    E --> F[CDS pricing<br/>spread & survival curve<br/><i>planned</i>]
+    E --> F[CDS pricing<br/>spread & survival curve<br/><i>built</i>]
 ```
 
 ## Design decisions
@@ -25,6 +25,8 @@ DV01 and modified duration are computed by shock-and-reprice rather than by clos
 
 The options Greeks are computed analytically from the closed-form Black-Scholes formulas, using only the standard normal CDF and PDF rather than a quant library. To prove the formulas are actually correct rather than just plausible-looking, `options_demo.py` includes a finite-difference check: it bumps the spot price up and down by a small amount, reprices the option both ways, and compares that numerical estimate of delta against the analytical one. The two match to five decimal places. The demo also handles a subtlety that's easy to get backwards under interview pressure: a call is in-the-money when the strike is below spot, but a put is in-the-money when the strike is above spot, the moneyness logic flips between the two, and the code makes that explicit rather than assuming it.
 
+CDS pricing reuses the discount curve from the yield curve module rather than building a separate one, since both legs of a credit default swap need discounting. The survival curve is bootstrapped the same conceptual way as the yield curve: each tenor's market par spread implies one unknown survival probability, solved by setting the premium leg's present value equal to the protection leg's present value at that tenor. The genuinely easy mistake here is mixing up which sums can be reused across bootstrap steps: the protection leg's running total carries forward cleanly since it doesn't depend on spread, but the premium leg's annuity has to be reapplied with each tenor's *own* spread rather than reusing a blended historical sum, since each tenor represents a separate par contract rather than one contract's coupon schedule. `cds_demo.py` proves the bootstrap is correct by repricing every tenor's fair spread from the finished curve and confirming it reproduces the exact input spread used to build it. The mark-to-market example also makes the payoff direction explicit, the part most often gotten backwards under pressure: buying protection gains value when spreads widen, since the protection you locked in cheaply is now worth more than what you're paying for it.
+
 ## Getting started
 
 Requires Python 3 only — no external dependencies.
@@ -34,6 +36,7 @@ git clone <your-repo-url>
 cd rates-derivatives-engine
 python3 demo.py
 python3 options_demo.py
+python3 cds_demo.py
 ```
 
 Expected output from `demo.py`:
@@ -75,17 +78,44 @@ Sanity check -- analytical delta vs. finite-difference delta:
   put : analytical=-0.42014   finite-difference=-0.42014
 ```
 
+Expected output from `cds_demo.py`:
+
+```
+Bootstrapped survival curve:
+  1Y   survival=98.6842%   hazard=1.3245%
+  2Y   survival=96.4008%   hazard=2.3411%
+  3Y   survival=93.4304%   hazard=3.1298%
+  4Y   survival=90.3841%   hazard=3.3148%
+  5Y   survival=87.3517%   hazard=3.4126%
+
+Sanity check -- repricing each tenor's fair spread against its own input spread:
+  1Y: input=0.8000%   repriced=0.8000%
+  2Y: input=1.1000%   repriced=1.1000%
+  3Y: input=1.3500%   repriced=1.3500%
+  4Y: input=1.5000%   repriced=1.5000%
+  5Y: input=1.6000%   repriced=1.6000%
+
+Mark-to-market example:
+  Bought $10,000,000 of 5Y protection a year ago at a contractual spread of 1.30%.
+  Today's 5Y fair spread on this curve: 1.60%
+  Mark-to-market value of the position: $122,951.11
+  (Positive because spreads widened since the trade was put on -- the protection
+   you locked in cheaply is now worth more than what you're paying for it.)
+```
+
 ## Project structure
 
 ```
 yield_curve.py     # par curve bootstrapping, discount factors, zero rates
 bond_pricer.py      # bond PV, DV01, and modified duration via shock-and-reprice
 black_scholes.py     # European option pricing and Greeks (delta, gamma, vega, theta, rho)
-demo.py               # end-to-end yield curve and bond example
-options_demo.py        # end-to-end options Greeks example with finite-difference validation
+cds_pricer.py          # survival curve bootstrapping, fair spread, mark-to-market valuation
+demo.py                  # end-to-end yield curve and bond example
+options_demo.py            # end-to-end options Greeks example with finite-difference validation
+cds_demo.py                  # end-to-end CDS example with par-spread repricing validation
 README.md
 ```
 
-## Roadmap
+## Status
 
-- Simplified CDS pricing: survival curve construction and spread valuation
+All planned pieces are built: curve bootstrapping, bond pricing and risk, options Greeks, and CDS pricing. Every module includes its own correctness check rather than just producing plausible-looking numbers: DV01 is internally consistent with duration, analytical option Greeks match finite-difference estimates, and the CDS bootstrap reprices every tenor back to its own input spread exactly.
