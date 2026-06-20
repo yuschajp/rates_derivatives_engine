@@ -15,6 +15,7 @@ flowchart TD
     C --> D[DV01 & duration<br/>shock-and-reprice<br/><i>built</i>]
     D --> E[Options Greeks<br/>Black-Scholes<br/><i>built</i>]
     E --> F[CDS pricing<br/>spread & survival curve<br/><i>built</i>]
+    F --> G[HTML dashboard<br/><i>built</i>]
 ```
 
 ## Design decisions
@@ -29,6 +30,8 @@ CDS pricing reuses the discount curve from the yield curve module rather than bu
 
 `lifecycle_demo.py` ties bonds, options, and CDS into a single narrative rather than three disconnected demos: one corporate credit position, priced and risk-managed three different ways off the same discount curve. The bond itself carries interest rate risk measured by DV01 and duration; an equity put already in place is a tail hedge with its own delta and gamma; and CDS protection on the same issuer is a third, more direct way to express a credit view. All three get priced consistently off the same curve rather than treated as unrelated examples.
 
+`dashboard.py` renders the curve, the bond position, the options Greeks, and the CDS survival curve into a single static HTML page, the same way the ledger engine's dashboard does, so the numbers can be reviewed visually without reading through console output line by line.
+
 ## Getting started
 
 Requires Python 3 only — no external dependencies.
@@ -40,9 +43,10 @@ python3 lifecycle_demo.py
 python3 demo.py
 python3 options_demo.py
 python3 cds_demo.py
+python3 dashboard.py    # then open dashboard.html in a browser
 ```
 
-`lifecycle_demo.py` is the best starting point — it walks through one position viewed three ways. The other three demos isolate each piece individually.
+`lifecycle_demo.py` is the best starting point — it walks through one position viewed three ways. The other three demos isolate each piece individually, and `dashboard.py` renders all of it as a single visual report.
 
 Expected output from `lifecycle_demo.py`:
 
@@ -157,9 +161,10 @@ bond_pricer.py      # bond PV, DV01, and modified duration via shock-and-reprice
 black_scholes.py     # European option pricing and Greeks (delta, gamma, vega, theta, rho)
 cds_pricer.py          # survival curve bootstrapping, fair spread, mark-to-market valuation
 lifecycle_demo.py         # combined end-to-end story: one position, all three modules
-demo.py                      # standalone yield curve and bond example
-options_demo.py                 # standalone options Greeks example with finite-difference validation
-cds_demo.py                        # standalone CDS example with par-spread repricing validation
+dashboard.py                # static HTML report combining all four modules into one view
+demo.py                        # standalone yield curve and bond example
+options_demo.py                   # standalone options Greeks example with finite-difference validation
+cds_demo.py                          # standalone CDS example with par-spread repricing validation
 README.md
 ```
 

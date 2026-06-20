@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Rates & Derivatives Engine Dashboard</title>
+<style>
+  body { font-family: -apple-system, Helvetica, Arial, sans-serif; background: #f5f6f8; color: #1a1a1a; margin: 0; padding: 32px; }
+  h1 { color: #1B3A5C; margin-bottom: 4px; }
+  .subtitle { color: #5a5a5a; margin-bottom: 28px; }
+  .card { background: #ffffff; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .card h2 { color: #1B3A5C; font-size: 16px; margin-top: 0; border-bottom: 1px solid #e2e2e2; padding-bottom: 8px; }
+  .figure-row { }
+  .figure-block { display: inline-block; margin-right: 48px; vertical-align: top; }
+  .figure { font-size: 24px; font-weight: 600; color: #1B3A5C; }
+  .figure-label { font-size: 12px; color: #5a5a5a; margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; background: #1B3A5C; color: #fff; padding: 8px 10px; }
+  td { padding: 8px 10px; border-bottom: 1px solid #ececec; }
+  tr:nth-child(even) td { background: #fafafa; }
+</style>
+</head>
+<body>
+  <h1>Rates & Derivatives Engine</h1>
+  <div class="subtitle">Bootstrapped curve, bond risk, options Greeks, and CDS pricing</div>
+
+  <div class="card">
+    <h2>Bootstrapped zero curve</h2>
+    <table><thead><tr><th>Tenor</th><th>Par rate</th><th>Zero rate</th><th>Discount factor</th></tr></thead><tbody><tr><td>1Y</td><td>4.800%</td><td>4.6884%</td><td>0.954198</td></tr><tr><td>2Y</td><td>4.700%</td><td>4.5907%</td><td>0.912276</td></tr><tr><td>3Y</td><td>4.600%</td><td>4.4914%</td><td>0.873941</td></tr><tr><td>4Y</td><td>4.520%</td><td>4.4111%</td><td>0.838245</td></tr><tr><td>5Y</td><td>4.450%</td><td>4.3400%</td><td>0.804930</td></tr></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Bond position</h2>
+    <div class="figure-row">
+      <div class="figure-block">
+        <div class="figure-label">$10,000,000 notional, 5Y 5.00% coupon</div>
+        <div class="figure">$10,241,097.45</div>
+      </div>
+      <div class="figure-block">
+        <div class="figure-label">DV01 per 1bp</div>
+        <div class="figure">$4,450.68</div>
+      </div>
+      <div class="figure-block">
+        <div class="figure-label">Modified duration</div>
+        <div class="figure">4.3459y</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Options Greeks across strikes</h2>
+    <table><thead><tr><th>Type</th><th>Strike</th><th>Price</th><th>Delta</th><th>Gamma</th><th>Vega</th><th>Theta</th><th>Rho</th></tr></thead><tbody><tr><td>CALL</td><td>85</td><td>17.943</td><td>+0.8688</td><td>0.01204</td><td>0.1505</td><td>-0.0179</td><td>+0.3447</td></tr><tr><td>CALL</td><td>100</td><td>8.008</td><td>+0.5799</td><td>0.02211</td><td>0.2764</td><td>-0.0244</td><td>+0.2499</td></tr><tr><td>CALL</td><td>115</td><td>2.779</td><td>+0.2779</td><td>0.01897</td><td>0.2372</td><td>-0.0190</td><td>+0.1251</td></tr><tr><td>PUT</td><td>85</td><td>1.260</td><td>-0.1312</td><td>0.01204</td><td>0.1505</td><td>-0.0087</td><td>-0.0719</td></tr><tr><td>PUT</td><td>100</td><td>6.028</td><td>-0.4201</td><td>0.02211</td><td>0.2764</td><td>-0.0137</td><td>-0.2402</td></tr><tr><td>PUT</td><td>115</td><td>15.502</td><td>-0.7221</td><td>0.01897</td><td>0.2372</td><td>-0.0066</td><td>-0.4386</td></tr></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>CDS survival curve and repricing check</h2>
+    <table><thead><tr><th>Tenor</th><th>Input spread</th><th>Repriced spread</th><th>Survival prob.</th><th>Hazard rate</th></tr></thead><tbody><tr><td>1Y</td><td>0.8000%</td><td>0.8000%</td><td>98.6842%</td><td>1.3245%</td></tr><tr><td>2Y</td><td>1.1000%</td><td>1.1000%</td><td>96.4008%</td><td>2.3411%</td></tr><tr><td>3Y</td><td>1.3500%</td><td>1.3500%</td><td>93.4304%</td><td>3.1298%</td></tr><tr><td>4Y</td><td>1.5000%</td><td>1.5000%</td><td>90.3841%</td><td>3.3148%</td></tr><tr><td>5Y</td><td>1.6000%</td><td>1.6000%</td><td>87.3517%</td><td>3.4126%</td></tr></tbody></table>
+  </div>
+</body>
+</html>
