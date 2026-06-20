@@ -27,6 +27,8 @@ The options Greeks are computed analytically from the closed-form Black-Scholes 
 
 CDS pricing reuses the discount curve from the yield curve module rather than building a separate one, since both legs of a credit default swap need discounting. The survival curve is bootstrapped the same conceptual way as the yield curve: each tenor's market par spread implies one unknown survival probability, solved by setting the premium leg's present value equal to the protection leg's present value at that tenor. The genuinely easy mistake here is mixing up which sums can be reused across bootstrap steps: the protection leg's running total carries forward cleanly since it doesn't depend on spread, but the premium leg's annuity has to be reapplied with each tenor's *own* spread rather than reusing a blended historical sum, since each tenor represents a separate par contract rather than one contract's coupon schedule. `cds_demo.py` proves the bootstrap is correct by repricing every tenor's fair spread from the finished curve and confirming it reproduces the exact input spread used to build it. The mark-to-market example also makes the payoff direction explicit, the part most often gotten backwards under pressure: buying protection gains value when spreads widen, since the protection you locked in cheaply is now worth more than what you're paying for it.
 
+`lifecycle_demo.py` ties bonds, options, and CDS into a single narrative rather than three disconnected demos: one corporate credit position, priced and risk-managed three different ways off the same discount curve. The bond itself carries interest rate risk measured by DV01 and duration; an equity put already in place is a tail hedge with its own delta and gamma; and CDS protection on the same issuer is a third, more direct way to express a credit view. All three get priced consistently off the same curve rather than treated as unrelated examples.
+
 ## Getting started
 
 Requires Python 3 only — no external dependencies.
@@ -34,9 +36,53 @@ Requires Python 3 only — no external dependencies.
 ```bash
 git clone <your-repo-url>
 cd rates-derivatives-engine
+python3 lifecycle_demo.py
 python3 demo.py
 python3 options_demo.py
 python3 cds_demo.py
+```
+
+`lifecycle_demo.py` is the best starting point — it walks through one position viewed three ways. The other three demos isolate each piece individually.
+
+Expected output from `lifecycle_demo.py`:
+
+```
+======================================================================
+1. Build the funding curve everything else gets priced off of
+======================================================================
+  1Y   zero=4.6884%   DF=0.954198
+  2Y   zero=4.5907%   DF=0.912276
+  3Y   zero=4.4914%   DF=0.873941
+  4Y   zero=4.4111%   DF=0.838245
+  5Y   zero=4.3400%   DF=0.804930
+
+======================================================================
+2. Price the bond position and measure its rate risk
+======================================================================
+  $10,000,000 notional, 5Y 5.00% corporate bond
+  Price: 102.4110   Position value: $10,241,097.45
+  Position DV01: $4,450.68 per 1bp
+  Modified duration: 4.3459 years
+
+======================================================================
+3. Check the equity tail hedge already in place on the same issuer
+======================================================================
+  Holding 2,000 put contracts, strike $40, spot $50, 1Y expiry
+  Put price per share: $1.9348   Total hedge cost: $386,956.22
+  Delta: -0.1733   Gamma: 0.01464   Vega: 0.1281
+  If the stock drops further, this hedge gains value as delta moves toward -1.
+
+======================================================================
+4. Price out direct CDS protection on the same issuer instead
+======================================================================
+  Today's 5Y fair CDS spread on this issuer: 1.60%
+  Buying $10,000,000 of 5Y protection today would cost that spread annually.
+
+  Suppose the desk actually bought this protection a year ago at 1.30%,
+  and the credit curve has since widened to today's level:
+  Mark-to-market value of that protection today: $122,951.11
+  That gain offsets the bond position's own credit risk directly -- a different
+  hedge than the equity put, but expressing a view on the same underlying name.
 ```
 
 Expected output from `demo.py`:
@@ -110,9 +156,10 @@ yield_curve.py     # par curve bootstrapping, discount factors, zero rates
 bond_pricer.py      # bond PV, DV01, and modified duration via shock-and-reprice
 black_scholes.py     # European option pricing and Greeks (delta, gamma, vega, theta, rho)
 cds_pricer.py          # survival curve bootstrapping, fair spread, mark-to-market valuation
-demo.py                  # end-to-end yield curve and bond example
-options_demo.py            # end-to-end options Greeks example with finite-difference validation
-cds_demo.py                  # end-to-end CDS example with par-spread repricing validation
+lifecycle_demo.py         # combined end-to-end story: one position, all three modules
+demo.py                      # standalone yield curve and bond example
+options_demo.py                 # standalone options Greeks example with finite-difference validation
+cds_demo.py                        # standalone CDS example with par-spread repricing validation
 README.md
 ```
 
