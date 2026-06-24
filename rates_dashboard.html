@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Rates & Derivatives Engine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+  :root {
+    --navy:#1B3A5C;--navy2:#0f2236;--accent:#2E6DA4;
+    --green:#16a34a;--red:#dc2626;--amber:#d97706;
+    --bg:#f5f7fa;--card:#fff;--border:#e2e8f0;--text:#111827;--muted:#6b7280;
+    --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);}
+
+  header{background:var(--navy2);padding:16px 36px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--accent);}
+  header h1{font-family:var(--mono);font-size:1.05rem;color:#fff;font-weight:600;}
+  header .sub{font-family:var(--mono);font-size:0.68rem;color:rgba(255,255,255,0.4);margin-top:3px;}
+  .badge{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:0.7rem;color:#4ade80;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.25);padding:5px 12px;border-radius:20px;}
+  .dot{width:6px;height:6px;background:#4ade80;border-radius:50%;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+  .container{max-width:1200px;margin:0 auto;padding:24px 20px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,0.05);margin-bottom:18px;}
+  .card-label{font-family:var(--mono);font-size:0.67rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:14px;}
+
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px;}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+
+  .kpi{text-align:center;padding:14px 10px;}
+  .kpi .val{font-family:var(--mono);font-size:1.6rem;font-weight:600;color:var(--navy);}
+  .kpi .lbl{font-size:0.65rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.7px;}
+  .kpi .chg{font-family:var(--mono);font-size:0.72rem;margin-top:3px;}
+  .up{color:var(--red);}
+  .dn{color:var(--green);}
+
+  /* Yield curve chart */
+  .curve-chart{position:relative;height:180px;margin:10px 0;}
+  svg.curve{width:100%;height:100%;}
+
+  /* Rates table */
+  table{width:100%;border-collapse:collapse;font-size:0.8rem;}
+  th{background:#f8fafc;padding:7px 10px;text-align:left;font-size:0.67rem;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);border-bottom:1px solid var(--border);font-family:var(--mono);}
+  td{padding:7px 10px;border-bottom:1px solid #f1f5f9;font-family:var(--mono);font-size:0.78rem;}
+  tr:last-child td{border-bottom:none;}
+  .rate-val{font-weight:600;}
+  .pos{color:var(--red);}
+  .neg{color:var(--green);}
+
+  /* Pricing form */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .field label{display:block;font-size:0.7rem;font-weight:500;color:var(--muted);margin-bottom:4px;font-family:var(--mono);}
+  .field input,.field select{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem;font-family:var(--mono);color:var(--text);background:#fafbfc;}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent);}
+  .btn{padding:9px 18px;border:none;border-radius:7px;font-family:var(--mono);font-size:0.82rem;font-weight:600;cursor:pointer;transition:all 0.15s;}
+  .btn-primary{background:var(--navy);color:#fff;width:100%;margin-top:14px;}
+  .btn-primary:hover{background:var(--accent);}
+
+  /* Results */
+  .result-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px;}
+  .result-item{background:#f8fafc;border:1px solid var(--border);border-radius:7px;padding:10px 12px;}
+  .result-item .key{font-family:var(--mono);font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.6px;}
+  .result-item .value{font-family:var(--mono);font-size:1rem;font-weight:600;color:var(--navy);margin-top:3px;}
+
+  /* Stress table */
+  .stress-row.pos-pnl td:last-child{color:var(--green);font-weight:600;}
+  .stress-row.neg-pnl td:last-child{color:var(--red);font-weight:600;}
+  .scenario-bar{display:inline-block;height:8px;border-radius:4px;vertical-align:middle;margin-left:6px;}
+
+  .tab-row{display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--border);}
+  .tab{padding:8px 20px;font-family:var(--mono);font-size:0.78rem;font-weight:600;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.15s;}
+  .tab.active{color:var(--navy);border-bottom-color:var(--accent);}
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  @media(max-width:720px){
+    .grid-2,.grid-3,.grid-4,.form-grid,.result-grid{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Rates &amp; Derivatives Pricing Engine</h1>
+    <div class="sub">Live FRED data · Yield curve · IR Swaps · Bonds · Stress testing · github.com/yuschajp</div>
+  </div>
+  <div class="badge"><div class="dot"></div>Live Market Data</div>
+</header>
+
+<div class="container">
+
+  <!-- Market snapshot -->
+  <div class="grid-4">
+    <div class="card kpi"><div class="val" id="k-sofr">—</div><div class="lbl">SOFR</div><div class="chg" id="k-sofr-lbl">Secured Overnight</div></div>
+    <div class="card kpi"><div class="val" id="k-2y">—</div><div class="lbl">2Y Treasury</div><div class="chg" id="k-2y-lbl">Par Yield</div></div>
+    <div class="card kpi"><div class="val" id="k-10y">—</div><div class="lbl">10Y Treasury</div><div class="chg" id="k-10y-lbl">Par Yield</div></div>
+    <div class="card kpi"><div class="val" id="k-spread">—</div><div class="lbl">2s10s Spread</div><div class="chg" id="k-spread-lbl">Curve Shape</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-row">
+    <div class="tab active" onclick="showTab('curve',this)">Yield Curve</div>
+    <div class="tab" onclick="showTab('swap',this)">IR Swap Pricer</div>
+    <div class="tab" onclick="showTab('bond',this)">Bond Pricer</div>
+    <div class="tab" onclick="showTab('stress',this)">Stress Tests</div>
+  </div>
+
+  <!-- Yield Curve Panel -->
+  <div class="panel active" id="panel-curve">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-label">US Treasury Par Yield Curve</div>
+        <div class="curve-chart">
+          <svg class="curve" id="curve-svg" viewBox="0 0 500 160" preserveAspectRatio="none"></svg>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:0.65rem;color:var(--muted);margin-top:4px;">
+          <span>3M</span><span>1Y</span><span>2Y</span><span>5Y</span><span>10Y</span><span>20Y</span><span>30Y</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Current Rates</div>
+        <table>
+          <thead><tr><th>Tenor</th><th>Yield</th><th>vs 10Y</th></tr></thead>
+          <tbody id="rates-table"></tbody>
+        </table>
+        <div style="margin-top:12px;font-family:var(--mono);font-size:0.68rem;color:var(--muted)" id="data-source"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Swap Pricer Panel -->
+  <div class="panel" id="panel-swap">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-label">IR Swap Parameters</div>
+        <div class="form-grid">
+          <div class="field"><label>Notional ($)</label><input type="number" id="sw-notional" value="10000000"/></div>
+          <div class="field"><label>Maturity (years)</label><select id="sw-maturity">
+            <option value="2">2Y</option><option value="3">3Y</option><option value="5">5Y</option>
+            <option value="7">7Y</option><option value="10" selected>10Y</option><option value="15">15Y</option><option value="20">20Y</option>
+          </select></div>
+          <div class="field"><label>Fixed Rate (%)</label><input type="number" id="sw-fixed" step="0.001" value="4.220"/></div>
+          <div class="field"><label>Direction</label><select id="sw-direction">
+            <option value="pay">Pay Fixed / Receive Float</option>
+            <option value="receive">Receive Fixed / Pay Float</option>
+          </select></div>
+          <div class="field"><label>Payment Frequency</label><select id="sw-freq">
+            <option value="2" selected>Semiannual</option>
+            <option value="4">Quarterly</option>
+            <option value="1">Annual</option>
+          </select></div>
+        </div>
+        <button class="btn btn-primary" onclick="priceSwap()">Price Swap</button>
+        <div style="margin-top:10px;font-family:var(--mono);font-size:0.7rem;color:var(--muted)">
+          Par rate pre-filled from live curve — adjust fixed rate to mark off-market positions
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Swap Pricing Output</div>
+        <div id="swap-placeholder" style="color:var(--muted);font-size:0.85rem;padding:20px 0;">
+          Configure swap parameters and click Price Swap.
+        </div>
+        <div id="swap-results" style="display:none;">
+          <div class="result-grid">
+            <div class="result-item"><div class="key">NPV</div><div class="value" id="sw-npv"></div></div>
+            <div class="result-item"><div class="key">Par Rate</div><div class="value" id="sw-par"></div></div>
+            <div class="result-item"><div class="key">DV01</div><div class="value" id="sw-dv01"></div></div>
+            <div class="result-item"><div class="key">PV01</div><div class="value" id="sw-pv01"></div></div>
+            <div class="result-item"><div class="key">Fixed Leg PV</div><div class="value" id="sw-fixpv"></div></div>
+            <div class="result-item"><div class="key">Float Leg PV</div><div class="value" id="sw-fltpv"></div></div>
+          </div>
+          <div style="margin-top:14px;">
+            <div class="card-label" style="margin-bottom:8px;">DV01 by Tenor Bucket</div>
+            <div id="sw-buckets"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bond Pricer Panel -->
+  <div class="panel" id="panel-bond">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-label">Bond Parameters</div>
+        <div class="form-grid">
+          <div class="field"><label>Face Value ($)</label><input type="number" id="bd-face" value="1000000"/></div>
+          <div class="field"><label>Coupon Rate (%)</label><input type="number" id="bd-coupon" step="0.001" value="4.500"/></div>
+          <div class="field"><label>Maturity (years)</label><select id="bd-maturity">
+            <option value="2">2Y</option><option value="3">3Y</option><option value="5">5Y</option>
+            <option value="7">7Y</option><option value="10" selected>10Y</option><option value="20">20Y</option><option value="30">30Y</option>
+          </select></div>
+          <div class="field"><label>Payment Frequency</label><select id="bd-freq">
+            <option value="2" selected>Semiannual</option>
+            <option value="1">Annual</option>
+          </select></div>
+        </div>
+        <button class="btn btn-primary" onclick="priceBond()">Price Bond</button>
+      </div>
+      <div class="card">
+        <div class="card-label">Bond Pricing Output</div>
+        <div id="bond-placeholder" style="color:var(--muted);font-size:0.85rem;padding:20px 0;">
+          Configure bond parameters and click Price Bond.
+        </div>
+        <div id="bond-results" style="display:none;">
+          <div class="result-grid">
+            <div class="result-item"><div class="key">Clean Price</div><div class="value" id="bd-price"></div></div>
+            <div class="result-item"><div class="key">Price / 100</div><div class="value" id="bd-price100"></div></div>
+            <div class="result-item"><div class="key">DV01</div><div class="value" id="bd-dv01"></div></div>
+            <div class="result-item"><div class="key">Mod. Duration</div><div class="value" id="bd-dur"></div></div>
+            <div class="result-item"><div class="key">YTM (approx)</div><div class="value" id="bd-ytm"></div></div>
+            <div class="result-item"><div class="key">Convexity</div><div class="value" id="bd-cvx"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stress Panel -->
+  <div class="panel" id="panel-stress">
+    <div class="card">
+      <div class="card-label">Scenario Analysis — 10Y Pay-Fixed IRS ($10M Notional)</div>
+      <table>
+        <thead><tr><th>Scenario</th><th>Base NPV</th><th>Stressed NPV</th><th>P&amp;L</th><th>P&amp;L (bps)</th></tr></thead>
+        <tbody id="stress-table"></tbody>
+      </table>
+      <div style="margin-top:14px;font-family:var(--mono);font-size:0.7rem;color:var(--muted)">
+        Scenarios run on current live curve. Pay-fixed swap profits when rates rise (positive P&L = 🟢).
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Market data (FRED fallback rates — mid 2026) ───────────────────────────
+const RATES = {
+  "3M":4.32,"6M":4.28,"1Y":4.15,"2Y":4.05,"3Y":4.02,
+  "5Y":4.08,"7Y":4.15,"10Y":4.22,"20Y":4.48,"30Y":4.52,
+  "SOFR":4.30,"EFFR":4.33
+};
+
+const TENOR_YEARS = {"3M":0.25,"6M":0.5,"1Y":1,"2Y":2,"3Y":3,"5Y":5,"7Y":7,"10Y":10,"20Y":20,"30Y":30};
+
+// ── Build par rates for integer tenors ────────────────────────────────────
+function buildParRates(maxTenor=10) {
+  const known = Object.entries(TENOR_YEARS)
+    .filter(([k])=>RATES[k]!==undefined)
+    .map(([k,t])=>({t,r:RATES[k]/100}))
+    .sort((a,b)=>a.t-b.t);
+  const par={};
+  for(let t=1;t<=maxTenor;t++){
+    let r=known[0].r;
+    for(let i=0;i<known.length-1;i++){
+      if(known[i].t<=t && t<=known[i+1].t){
+        const frac=(t-known[i].t)/(known[i+1].t-known[i].t);
+        r=known[i].r+frac*(known[i+1].r-known[i].r);
+        break;
+      }
+      if(t>=known[known.length-1].t) r=known[known.length-1].r;
+    }
+    par[t]=r;
+  }
+  return par;
+}
+
+// ── Yield curve math ──────────────────────────────────────────────────────
+function bootstrap(parRates) {
+  const tenors=Object.keys(parRates).map(Number).sort((a,b)=>a-b);
+  const dfs={};
+  for(const n of tenors){
+    const c=parRates[n]*100;
+    const pvPrior=Object.keys(dfs).filter(i=>i<n).reduce((s,i)=>s+c*dfs[i],0);
+    dfs[n]=(100-pvPrior)/(100+c);
+  }
+  return dfs;
+}
+
+function discountFactor(dfs, t) {
+  const tenors=Object.keys(dfs).map(Number).sort((a,b)=>a-b);
+  if(t<=tenors[0]) return Math.exp(-(-Math.log(dfs[tenors[0]])/tenors[0])*t);
+  if(t>=tenors[tenors.length-1]) return Math.exp(-(-Math.log(dfs[tenors[tenors.length-1]])/tenors[tenors.length-1])*t);
+  for(let i=0;i<tenors.length-1;i++){
+    const t0=tenors[i],t1=tenors[i+1];
+    if(t0<=t&&t<=t1){
+      const frac=(t-t0)/(t1-t0);
+      const logDf=(1-frac)*Math.log(dfs[t0])+frac*Math.log(dfs[t1]);
+      return Math.exp(logDf);
+    }
+  }
+  return dfs[tenors[tenors.length-1]];
+}
+
+// ── Swap pricing ──────────────────────────────────────────────────────────
+function priceSwapJS(parRates, notional, fixedRate, maturity, payFixed, freq=2) {
+  const dfs=bootstrap(parRates);
+  const dt=1/freq, nPer=Math.round(maturity*freq);
+  const fixedCoupon=notional*fixedRate*dt;
+  const fixedPV=Array.from({length:nPer},(_,i)=>fixedCoupon*discountFactor(dfs,(i+1)*dt)).reduce((a,b)=>a+b,0);
+  const floatPV=notional*(1-discountFactor(dfs,maturity));
+  const annuity=Array.from({length:nPer},(_,i)=>dt*discountFactor(dfs,(i+1)*dt)).reduce((a,b)=>a+b,0);
+  const parRate=floatPV/(notional*annuity);
+  const npv=payFixed?floatPV-fixedPV:fixedPV-floatPV;
+
+  // DV01
+  const bump=0.0001;
+  const upPar={},dnPar={};
+  Object.keys(parRates).forEach(t=>{upPar[t]=parRates[t]+bump;dnPar[t]=parRates[t]-bump;});
+  const upDfs=bootstrap(upPar),dnDfs=bootstrap(dnPar);
+  function npvWith(dfsObj){
+    const fl=notional*(1-discountFactor(dfsObj,maturity));
+    const fx=Array.from({length:nPer},(_,i)=>fixedCoupon*discountFactor(dfsObj,(i+1)*dt)).reduce((a,b)=>a+b,0);
+    return payFixed?fl-fx:fx-fl;
+  }
+  const dv01=(npvWith(dnDfs)-npvWith(upDfs))/2;
+  const pv01=notional*annuity*bump;
+
+  // Tenor buckets
+  const buckets={};
+  Object.keys(parRates).forEach(tenor=>{
+    const bumped={};
+    Object.keys(parRates).forEach(t=>{bumped[t]=parRates[t]+(t==tenor?bump:0);});
+    const bDfs=bootstrap(bumped);
+    buckets[tenor+'Y']=npvWith(bDfs)-npv;
+  });
+
+  return {npv,parRate,fixedPV,floatPV,dv01,pv01,annuity,buckets};
+}
+
+// ── Bond pricing ──────────────────────────────────────────────────────────
+function priceBondJS(parRates, face, coupon, maturity, freq=2) {
+  const dfs=bootstrap(parRates);
+  const dt=1/freq, nPer=Math.round(maturity*freq);
+  const c=face*coupon/freq;
+  let pv=0;
+  for(let i=1;i<=nPer;i++){
+    const cf=c+(i===nPer?face:0);
+    pv+=cf*discountFactor(dfs,i*dt);
+  }
+  const bump=0.0001;
+  const upPar={},dnPar={};
+  Object.keys(parRates).forEach(t=>{upPar[t]=parRates[t]+bump;dnPar[t]=parRates[t]-bump;});
+  function priceWith(pr){
+    const d=bootstrap(pr);let p=0;
+    for(let i=1;i<=nPer;i++){const cf=c+(i===nPer?face:0);p+=cf*discountFactor(d,i*dt);}
+    return p;
+  }
+  const dv01=(priceWith(dnPar)-priceWith(upPar))/2;
+  const modDur=(dv01/pv)*10000;
+
+  // Convexity
+  let cvx=0;
+  for(let i=1;i<=nPer;i++){
+    const t=i*dt,cf=c+(i===nPer?face:0);
+    cvx+=cf*discountFactor(dfs,t)*t*t;
+  }
+  cvx/=pv;
+
+  // Approx YTM via interpolation
+  const ytm=parRates[maturity]||Object.values(parRates).slice(-1)[0];
+
+  return {price:pv, price100:(pv/face)*100, dv01, modDur, ytm, cvx};
+}
+
+// ── Stress scenarios ──────────────────────────────────────────────────────
+const SCENARIOS=[
+  {name:"Parallel +25bp",  shifts:t=>+0.0025},
+  {name:"Parallel -25bp",  shifts:t=>-0.0025},
+  {name:"Parallel +50bp",  shifts:t=>+0.0050},
+  {name:"Parallel -50bp",  shifts:t=>-0.0050},
+  {name:"Parallel +100bp", shifts:t=>+0.0100},
+  {name:"Parallel -100bp", shifts:t=>-0.0100},
+  {name:"Parallel +200bp", shifts:t=>+0.0200},
+  {name:"Parallel -200bp", shifts:t=>-0.0200},
+  {name:"Bear Steepener",  shifts:t=>+0.0050+Math.max(0,(t-2)/28)*0.0100},
+  {name:"Bull Flattener",  shifts:t=>-0.0025-Math.max(0,(t-2)/28)*0.0075},
+  {name:"Bear Flattener",  shifts:t=>+0.0150-Math.max(0,(t-2)/28)*0.0100},
+  {name:"Bull Steepener",  shifts:t=>-0.0100+Math.max(0,(t-2)/28)*0.0100},
+  {name:"2008 Crisis",     shifts:t=>-0.0300},
+  {name:"2022 Fed Hikes",  shifts:t=>+0.0500-Math.max(0,(t-2)/28)*0.0200},
+];
+
+// ── UI ────────────────────────────────────────────────────────────────────
+function fmt(n){return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(n);}
+function fmtPct(r){return (r*100).toFixed(3)+'%';}
+
+function showTab(id,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+id).classList.add('active');
+  el.classList.add('active');
+}
+
+function initDashboard(){
+  // KPIs
+  const s=RATES.SOFR, y2=RATES['2Y'], y10=RATES['10Y'], spread=y10-y2;
+  document.getElementById('k-sofr').textContent=s.toFixed(2)+'%';
+  document.getElementById('k-2y').textContent=y2.toFixed(3)+'%';
+  document.getElementById('k-10y').textContent=y10.toFixed(3)+'%';
+  document.getElementById('k-spread').textContent=(spread*100).toFixed(0)+'bp';
+  document.getElementById('k-spread-lbl').textContent=spread>=0?'Normal (upward)':'Inverted';
+  document.getElementById('k-spread-lbl').style.color=spread>=0?'var(--green)':'var(--red)';
+
+  // Pre-fill swap fixed rate with 10Y par
+  document.getElementById('sw-fixed').value=(RATES['10Y']/100*100).toFixed(3);
+
+  // Rates table
+  const tbody=document.getElementById('rates-table');
+  const y10r=RATES['10Y'];
+  ['3M','6M','1Y','2Y','3Y','5Y','7Y','10Y','20Y','30Y'].forEach(t=>{
+    const r=RATES[t];
+    const spread=(r-y10r)*100;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${t}</td><td class="rate-val">${r.toFixed(3)}%</td><td class="${spread>=0?'pos':'neg'}">${spread>=0?'+':''}${spread.toFixed(0)}bp</td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('data-source').textContent='Source: FRED (St. Louis Fed) · Fallback rates shown · Updated: '+new Date().toLocaleString();
+
+  // Draw yield curve
+  drawCurve();
+
+  // Stress table
+  buildStressTable();
+}
+
+function drawCurve(){
+  const pts=[
+    {t:'3M',y:RATES['3M']},{t:'6M',y:RATES['6M']},{t:'1Y',y:RATES['1Y']},
+    {t:'2Y',y:RATES['2Y']},{t:'3Y',y:RATES['3Y']},{t:'5Y',y:RATES['5Y']},
+    {t:'7Y',y:RATES['7Y']},{t:'10Y',y:RATES['10Y']},{t:'20Y',y:RATES['20Y']},{t:'30Y',y:RATES['30Y']}
+  ];
+  const yields=pts.map(p=>p.y);
+  const minY=Math.min(...yields)*0.98, maxY=Math.max(...yields)*1.02;
+  const W=500,H=160,pad=20;
+  const xScale=i=>(i/(pts.length-1))*(W-2*pad)+pad;
+  const yScale=y=>H-pad-((y-minY)/(maxY-minY))*(H-2*pad);
+
+  const pathD=pts.map((p,i)=>`${i===0?'M':'L'}${xScale(i).toFixed(1)},${yScale(p.y).toFixed(1)}`).join(' ');
+  const areaD=pathD+` L${xScale(pts.length-1)},${H-pad} L${xScale(0)},${H-pad} Z`;
+
+  const svg=document.getElementById('curve-svg');
+  svg.innerHTML=`
+    <defs>
+      <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#2E6DA4" stop-opacity="0.3"/>
+        <stop offset="100%" stop-color="#2E6DA4" stop-opacity="0.02"/>
+      </linearGradient>
+    </defs>
+    <path d="${areaD}" fill="url(#cg)"/>
+    <path d="${pathD}" fill="none" stroke="#2E6DA4" stroke-width="2.5" stroke-linejoin="round"/>
+    ${pts.map((p,i)=>`<circle cx="${xScale(i)}" cy="${yScale(p.y)}" r="3.5" fill="#1B3A5C"/>
+      <text x="${xScale(i)}" y="${yScale(p.y)-8}" text-anchor="middle" font-size="9" fill="#6b7280" font-family="IBM Plex Mono">${p.y.toFixed(2)}</text>`).join('')}
+  `;
+}
+
+function priceSwap(){
+  const notional=+document.getElementById('sw-notional').value;
+  const maturity=+document.getElementById('sw-maturity').value;
+  const fixedRate=+document.getElementById('sw-fixed').value/100;
+  const payFixed=document.getElementById('sw-direction').value==='pay';
+  const freq=+document.getElementById('sw-freq').value;
+  const parRates=buildParRates(Math.max(maturity,10));
+  const r=priceSwapJS(parRates,notional,fixedRate,maturity,payFixed,freq);
+
+  document.getElementById('swap-placeholder').style.display='none';
+  document.getElementById('swap-results').style.display='block';
+  document.getElementById('sw-npv').textContent=fmt(r.npv);
+  document.getElementById('sw-npv').style.color=r.npv>=0?'var(--green)':'var(--red)';
+  document.getElementById('sw-par').textContent=fmtPct(r.parRate);
+  document.getElementById('sw-dv01').textContent=fmt(r.dv01);
+  document.getElementById('sw-pv01').textContent=fmt(r.pv01);
+  document.getElementById('sw-fixpv').textContent=fmt(r.fixedPV);
+  document.getElementById('sw-fltpv').textContent=fmt(r.floatPV);
+
+  const maxBucket=Math.max(...Object.values(r.buckets).map(Math.abs));
+  document.getElementById('sw-buckets').innerHTML=Object.entries(r.buckets).map(([t,v])=>{
+    const w=Math.round((Math.abs(v)/maxBucket)*80);
+    const col=v<0?'var(--red)':'var(--green)';
+    return `<div style="display:flex;align-items:center;gap:8px;margin:3px 0;font-family:var(--mono);font-size:0.72rem;">
+      <span style="width:28px;color:var(--muted)">${t}</span>
+      <div style="width:${w}px;height:8px;background:${col};border-radius:4px;"></div>
+      <span style="color:${col}">${v>=0?'+':''}${v.toFixed(2)}</span>
+    </div>`;
+  }).join('');
+}
+
+function priceBond(){
+  const face=+document.getElementById('bd-face').value;
+  const coupon=+document.getElementById('bd-coupon').value/100;
+  const maturity=+document.getElementById('bd-maturity').value;
+  const freq=+document.getElementById('bd-freq').value;
+  const parRates=buildParRates(Math.max(maturity,10));
+  const r=priceBondJS(parRates,face,coupon,maturity,freq);
+
+  document.getElementById('bond-placeholder').style.display='none';
+  document.getElementById('bond-results').style.display='block';
+  document.getElementById('bd-price').textContent=fmt(r.price);
+  document.getElementById('bd-price100').textContent=r.price100.toFixed(4);
+  const premium=r.price100>=100;
+  document.getElementById('bd-price100').style.color=premium?'var(--green)':'var(--red)';
+  document.getElementById('bd-dv01').textContent=fmt(r.dv01);
+  document.getElementById('bd-dur').textContent=r.modDur.toFixed(4)+' yrs';
+  document.getElementById('bd-ytm').textContent=fmtPct(r.ytm);
+  document.getElementById('bd-cvx').textContent=r.cvx.toFixed(4);
+}
+
+function buildStressTable(){
+  const parRates=buildParRates(10);
+  const notional=10_000_000;
+  const fixedRate=RATES['10Y']/100;
+  const base=priceSwapJS(parRates,notional,fixedRate,10,true,2);
+  const tbody=document.getElementById('stress-table');
+  tbody.innerHTML='';
+  SCENARIOS.forEach(sc=>{
+    const stressed={};
+    Object.keys(parRates).forEach(t=>{stressed[t]=Math.max(0.0001,parRates[t]+sc.shifts(+t));});
+    const sr=priceSwapJS(stressed,notional,fixedRate,10,true,2);
+    const pnl=sr.npv-base.npv;
+    const bps=(pnl/notional)*10000;
+    const tr=document.createElement('tr');
+    tr.className='stress-row '+(pnl>=0?'pos-pnl':'neg-pnl');
+    const barW=Math.min(60,Math.round(Math.abs(bps)*2));
+    const barCol=pnl>=0?'var(--green)':'var(--red)';
+    tr.innerHTML=`
+      <td>${sc.name}</td>
+      <td>${fmt(base.npv)}</td>
+      <td>${fmt(sr.npv)}</td>
+      <td style="color:${pnl>=0?'var(--green)':'var(--red)'};font-weight:600">${pnl>=0?'+':''}${fmt(pnl)}</td>
+      <td style="color:${pnl>=0?'var(--green)':'var(--red)'}">
+        ${bps>=0?'+':''}${bps.toFixed(1)}
+        <span class="scenario-bar" style="width:${barW}px;background:${barCol}"></span>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+initDashboard();
+</script>
+</body>
+</html>
